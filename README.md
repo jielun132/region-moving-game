@@ -31,7 +31,7 @@ TiDB 科普小游戏：扮演 PD（Placement Driver），把 4 个 Region（R1�
 
 ## 开发方式
 
-使用平凯 Loop 中配置的 Codex 智能体生成和迭代。
+使用平凯 Loop 中配置的 DeepSeek V4.1 Flash 智能体生成和迭代。
 
 ## 开源许可
 
