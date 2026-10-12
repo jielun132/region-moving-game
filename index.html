@@ -1,0 +1,891 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Region 搬家大作战 · TiDB 科普小游戏</title>
+<style>
+:root{
+  --bg:#10131a; --panel:#181d27; --panel2:#1e2430; --panel3:#232b3a;
+  --line:#2b3446; --text:#e9eef8; --muted:#94a1b6; --accent:#ff8665;
+  --ok:#4ade80; --warn:#fbbf24; --err:#f87171;
+  --r1:#22d3ee; --r2:#a78bfa; --r3:#facc15; --r4:#f472b6;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:
+    radial-gradient(1100px 560px at 12% -12%, #1a2233 0%, transparent 60%),
+    radial-gradient(900px 480px at 108% 8%, #241d2b 0%, transparent 55%),
+    var(--bg);
+  color:var(--text);
+  font:15px/1.55 -apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  min-height:100vh;
+}
+button{font:inherit;color:inherit}
+a{color:var(--accent)}
+.app{max-width:1240px;margin:0 auto;padding:16px 16px 30px;display:flex;flex-direction:column;gap:14px}
+
+.topbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.brand h1{font-size:21px;margin:0;letter-spacing:.02em}
+.brand p{margin:2px 0 0;color:var(--muted);font-size:12.5px}
+.pills{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap}
+.pill{padding:5px 12px;border-radius:999px;border:1px solid var(--line);color:var(--muted);font-size:13px;background:var(--panel)}
+.pill.active{border-color:var(--accent);color:var(--accent);background:rgba(255,134,101,.08)}
+.pill.done::after{content:" ✓";color:var(--ok);font-weight:800}
+.top-actions{display:flex;gap:8px}
+
+.btn{border-radius:10px;padding:9px 15px;border:1px solid var(--line);background:var(--panel2);cursor:pointer;font-weight:600;transition:transform .12s ease,border-color .15s ease,background .15s ease}
+.btn:hover{border-color:#3b4761}
+.btn:active{transform:translateY(1px)}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn.primary{background:var(--accent);border-color:transparent;color:#231208}
+.btn.primary:hover{background:#ff9c82}
+.btn.ghost{background:transparent}
+.btn.danger{background:rgba(248,113,113,.12);border-color:rgba(248,113,113,.55);color:#ffb4b4}
+.btn.danger:hover{background:rgba(248,113,113,.2)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.pulse{animation:pulse 1.5s ease-in-out infinite}
+
+.main{display:grid;grid-template-columns:minmax(0,1fr) 324px;gap:14px;align-items:start}
+.board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.dc{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:10px;transition:opacity .3s ease}
+.dc-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.dc-name{font-weight:800;font-size:14px}
+.dc-sub{color:var(--muted);font-size:11.5px}
+.cut-badge{font-size:11px;font-weight:800;color:var(--err);border:1px solid rgba(248,113,113,.5);border-radius:999px;padding:1px 8px;background:rgba(248,113,113,.1)}
+.dc.cut{opacity:.72}
+.dc-nodes{display:grid;grid-template-columns:1fr;gap:10px}
+
+.node{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px;transition:border-color .18s ease,box-shadow .18s ease;cursor:pointer}
+.node:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.node.can-drop{border-color:var(--accent);border-style:dashed;box-shadow:0 0 0 3px rgba(255,134,101,.16)}
+.node.lost{border-color:rgba(248,113,113,.65);box-shadow:0 0 0 3px rgba(248,113,113,.14)}
+.node-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.node-head b{font-size:13.5px}
+.load{color:var(--muted);font-size:12px;margin-left:auto}
+.st{font-size:11px;padding:1px 7px;border-radius:999px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.st.full{color:var(--warn);border-color:rgba(251,191,36,.45)}
+.st.off{color:var(--err);border-color:rgba(248,113,113,.5)}
+.st.lost{color:var(--err);border-color:rgba(248,113,113,.6);background:rgba(248,113,113,.1)}
+.slots{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.slot{height:38px;border-radius:9px;border:1px dashed var(--line);background:rgba(255,255,255,.02)}
+.chip{border:0;border-radius:9px;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;cursor:grab;color:#0b0f16;width:100%;height:38px;padding:0;position:relative;transition:transform .12s ease,box-shadow .15s ease}
+.chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.chip:active{cursor:grabbing}
+.chip.r1{background:var(--r1)}
+.chip.r2{background:var(--r2)}
+.chip.r3{background:var(--r3)}
+.chip.r4{background:var(--r4)}
+.chip.sel{outline:3px solid var(--accent);outline-offset:2px;transform:scale(1.07);box-shadow:0 6px 18px rgba(255,134,101,.35)}
+.chip.offline{filter:grayscale(1) brightness(.55)}
+.chip.offline::after{content:"×";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.7)}
+.chip.landed{animation:land .34s ease}
+
+.side{display:flex;flex-direction:column;gap:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:13px 14px}
+.card h2{font-size:12px;letter-spacing:.08em;color:var(--muted);margin:0 0 8px;font-weight:700}
+.card p{margin:0;font-size:13.5px}
+.progress{margin-top:9px;display:flex;align-items:center;gap:8px}
+.bar{flex:1;height:8px;border-radius:999px;background:var(--panel3);overflow:hidden}
+.bar i{display:block;height:100%;width:0%;border-radius:999px;background:linear-gradient(90deg,var(--accent),#ffb08f);transition:width .3s ease}
+#progressText{font-size:12px;color:var(--muted);white-space:nowrap}
+.stats{display:flex;gap:8px;padding:10px}
+.stat{flex:1;background:var(--panel2);border-radius:10px;padding:8px 6px;text-align:center}
+.stat .big{display:block;font-size:24px;font-weight:800;color:var(--accent);line-height:1.15}
+.stat label{font-size:11.5px;color:var(--muted)}
+.stat .num{display:block;font-size:18px;font-weight:800;line-height:1.3}
+table.matrix{width:100%;border-collapse:collapse}
+table.matrix th{font-size:11.5px;color:var(--muted);font-weight:600;padding:4px}
+table.matrix td{padding:5px 4px;text-align:center;border-radius:8px}
+table.matrix td.off{background:rgba(248,113,113,.08)}
+table.matrix td.lost{background:rgba(248,113,113,.18)}
+table.matrix th.rk{font-weight:800;font-size:12.5px}
+.rk.r1{color:var(--r1)} .rk.r2{color:var(--r2)} .rk.r3{color:var(--r3)} .rk.r4{color:var(--r4)}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin:0 1.5px;vertical-align:middle}
+tr.r1 .dot.on{background:var(--r1)} tr.r2 .dot.on{background:var(--r2)} tr.r3 .dot.on{background:var(--r3)} tr.r4 .dot.on{background:var(--r4)}
+.dot.zero{width:auto;height:auto;color:#5b687e;font-size:12px}
+ul.rules{margin:0;padding-left:18px;color:var(--muted);font-size:12.5px;display:flex;flex-direction:column;gap:4px}
+.side-actions{display:flex;gap:8px}
+.side-actions .btn{flex:1}
+
+.radio{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 14px;display:flex;gap:12px;align-items:baseline}
+.radio-label{color:var(--accent);font-weight:800;white-space:nowrap;font-size:13px}
+.radio-log{display:flex;flex-direction:column;gap:2px;font-size:13px;color:#6d7a90;max-height:104px;overflow:auto;width:100%}
+.radio-line.new{color:var(--text)}
+.radio-line.ok.new{color:var(--ok)}
+.radio-line.warn.new{color:var(--warn)}
+.radio-line.err.new{color:var(--err)}
+
+.legal{color:#5b687e;font-size:12px;line-height:1.75;border-top:1px solid var(--line);padding-top:10px;overflow-wrap:anywhere}
+
+.overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(8,10,16,.72);backdrop-filter:blur(6px);z-index:100}
+.overlay[hidden]{display:none}
+.modal{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:22px;width:min(560px,94vw);max-height:88vh;overflow:auto;box-shadow:0 24px 80px rgba(0,0,0,.5);animation:pop .26s ease;position:relative}
+.modal.wide{width:min(780px,94vw)}
+.modal h3{margin:6px 0 10px;font-size:20px}
+.modal p{margin:0 0 10px;font-size:14px}
+.modal .hint{color:var(--muted);font-size:12.5px;line-height:1.7}
+.modal-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.modal-head h3{margin:0}
+.x{border:1px solid var(--line);background:transparent;border-radius:8px;width:32px;height:32px;font-size:17px;cursor:pointer;line-height:1}
+.modal-actions{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+.modal-badge{display:inline-block;padding:4px 12px;border-radius:999px;font-weight:800;font-size:13px;margin-bottom:6px}
+.modal-badge.ok{background:rgba(74,222,128,.14);color:var(--ok);border:1px solid rgba(74,222,128,.4)}
+.modal-badge.err{background:rgba(248,113,113,.14);color:var(--err);border:1px solid rgba(248,113,113,.45)}
+.modal-badge.big{font-size:19px;padding:8px 20px}
+.modal ul.help{margin:0 0 8px;padding-left:18px;font-size:13.5px;display:flex;flex-direction:column;gap:6px}
+.modal ul.help li b{color:var(--accent)}
+.kv{background:var(--panel2);border-radius:10px;padding:10px 12px;font-size:13.5px;margin:8px 0}
+.kv .miss{color:var(--err);font-weight:700}
+.kv .alive{color:var(--ok);font-weight:700}
+
+.answer-board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:10px 0}
+.mini-dc{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px}
+.mini-dc .mini-head{font-size:11.5px;color:var(--muted);font-weight:700}
+.mini-node{display:flex;gap:4px;flex-wrap:wrap;background:var(--panel3);border-radius:8px;padding:6px;margin-top:6px;min-height:34px}
+.mini-chip{width:26px;height:26px;border-radius:7px;font-size:11px;font-weight:800;color:#0b0f16;display:flex;align-items:center;justify-content:center}
+.mini-chip.r1{background:var(--r1)} .mini-chip.r2{background:var(--r2)} .mini-chip.r3{background:var(--r3)} .mini-chip.r4{background:var(--r4)}
+.answer-step{background:var(--panel2);border-radius:10px;padding:10px 12px;font-size:14px;font-weight:600}
+.step-count{color:var(--muted);font-size:13px;align-self:center}
+.cert{text-align:center}
+.cert-stars{font-size:40px;letter-spacing:6px;color:var(--warn);margin:8px 0 2px;text-shadow:0 4px 24px rgba(251,191,36,.35);animation:pop .4s ease}
+.cert-sub{color:var(--muted);font-size:13px}
+.cert-glow{position:absolute;inset:-40%;background:radial-gradient(circle at 50% 30%,rgba(255,134,101,.14),transparent 55%);pointer-events:none}
+
+.ghost-chip{position:fixed;z-index:90;pointer-events:none;transition:transform .32s cubic-bezier(.2,.7,.3,1);border-radius:9px;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;color:#0b0f16;box-shadow:0 10px 30px rgba(0,0,0,.45)}
+.ghost-chip.r1{background:var(--r1)} .ghost-chip.r2{background:var(--r2)} .ghost-chip.r3{background:var(--r3)} .ghost-chip.r4{background:var(--r4)}
+
+@keyframes pop{from{transform:scale(.92);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes land{0%{transform:scale(1.22)}60%{transform:scale(.96)}100%{transform:scale(1)}}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-4px)}40%{transform:translateX(4px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
+.shake{animation:shake .45s ease}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(248,113,113,.45)}50%{box-shadow:0 0 0 7px rgba(248,113,113,0)}}
+.pulse{animation:pulse 1.5s ease-in-out infinite}
+
+@media (max-width:900px){
+  .main{grid-template-columns:1fr}
+  .board{grid-template-columns:1fr}
+  .dc-nodes{grid-template-columns:1fr 1fr}
+  .pills{margin-left:0}
+  .top-actions{margin-left:auto}
+  .modal{padding:18px;max-height:84vh}
+  .cert-stars{font-size:32px}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important}
+}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="topbar">
+    <div class="brand">
+      <h1>Region 搬家大作战</h1>
+      <p>TiDB 科普小游戏 · 你是今天的值班 PD（Placement Driver）</p>
+    </div>
+    <div class="pills">
+      <span class="pill" data-level="1">关卡 1 · 扩容救场</span>
+      <span class="pill" data-level="2">关卡 2 · 机房断电</span>
+    </div>
+    <div class="top-actions">
+      <button class="btn ghost" id="btnHelp">玩法</button>
+      <button class="btn ghost" id="btnAnswer">参考答案</button>
+    </div>
+  </header>
+
+  <main class="main">
+    <section class="board" id="board" aria-label="集群棋盘"></section>
+    <aside class="side">
+      <div class="card">
+        <h2>本关目标</h2>
+        <p id="goalText"></p>
+        <div class="progress">
+          <div class="bar"><i id="progressBar"></i></div>
+          <span id="progressText"></span>
+        </div>
+      </div>
+      <div class="card stats">
+        <div class="stat"><span class="big" id="movesLeft">6</span><label>剩余搬迁次数</label></div>
+        <div class="stat"><span class="num" id="usedCount">0</span><label>本关已用</label></div>
+        <div class="stat"><span class="num" id="totalCount">0</span><label>两关累计</label></div>
+      </div>
+      <div class="card">
+        <h2>各 Region 分布 · A / B / C</h2>
+        <table class="matrix">
+          <thead><tr><th></th><th>A</th><th>B</th><th>C</th></tr></thead>
+          <tbody id="matrixBody"></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <h2>调度规则</h2>
+        <ul class="rules">
+          <li>同一 Region 不能在同一台 TiKV 放两份副本</li>
+          <li>每台 TiKV 最多 4 个槽位</li>
+          <li>合法搬迁消耗 1 次额度；原地 / 重复副本 / 槽位满不消耗</li>
+          <li>断电挑战不消耗搬迁额度</li>
+          <li>达标判定优先于额度耗尽</li>
+        </ul>
+      </div>
+      <div class="side-actions">
+        <button class="btn danger" id="btnChallenge" hidden>断电挑战</button>
+        <button class="btn ghost" id="btnRestart">重开本关</button>
+      </div>
+    </aside>
+  </main>
+
+  <footer class="radio">
+    <span class="radio-label">集群对讲机</span>
+    <div class="radio-log" id="radioLog" aria-live="polite"></div>
+  </footer>
+
+  <footer class="legal">
+    科普设定：等大 Region · 三个投票副本 · 仅模拟 TiKV 层（4 个槽位与搬迁额度属于游戏规则）。搬迁动画展示的是完成后的状态。“失去多数派”表示副本暂时无法投票、Region 暂不可用，并非数据立即丢失。
+    延伸阅读：<a href="https://pingkai.cn/docs/tidb/stable/tidb-scheduling" target="_blank" rel="noopener">TiDB 调度原理</a> · <a href="https://pingkai.cn/docs/tidb/stable/tidb-storage" target="_blank" rel="noopener">Raft 存储与副本</a>
+  </footer>
+</div>
+
+<div class="overlay" id="modalHelp" data-closable="1" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+    <div class="modal-head">
+      <h3 id="helpTitle">玩法说明 · 两分钟上手</h3>
+      <button class="x" data-close-modal="modalHelp" aria-label="关闭玩法说明">×</button>
+    </div>
+    <ul class="help">
+      <li><b>你是谁：</b>PD（Placement Driver），为 4 个 Region（R1–R4）安排三份投票副本。集群有 3 个机房、6 台 TiKV，每台最多 4 个槽位。</li>
+      <li><b>怎么搬：</b>点彩色副本选中，再点目标 TiKV；桌面可拖拽；键盘用 Tab 聚焦、Enter 确认、Esc 取消。</li>
+      <li><b>额度：</b>每次合法搬迁消耗 1 次；原地、重复副本、槽位已满都是无效操作，不消耗次数。</li>
+      <li><b>关卡 1 · 扩容救场：</b>6 次搬迁以内，让 6 台 TiKV 每台正好 2 份副本。</li>
+      <li><b>关卡 2 · 机房断电：</b>8 次搬迁以内，让每个 Region 的三份副本分别位于 A、B、C，再点“断电挑战”。断电机房会让最多 Region 失去多数派（并列按 A→B→C）。</li>
+      <li><b>评分：</b>两关总搬迁 ≤8 次三星、≤10 次两星、其余通关一星。</li>
+    </ul>
+    <p class="hint">顶部“参考答案”会在独立演示棋盘上逐步展示解法，不影响你当前的对局。</p>
+    <div class="modal-actions"><button class="btn primary" data-close-modal="modalHelp" id="btnHelpStart">开始值班</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="modalAnswer" data-closable="1" hidden>
+  <div class="modal wide" role="dialog" aria-modal="true" aria-labelledby="ansTitle">
+    <div class="modal-head">
+      <h3 id="ansTitle">参考答案 · 独立演示棋盘</h3>
+      <button class="x" data-close-modal="modalAnswer" aria-label="关闭参考答案">×</button>
+    </div>
+    <p class="hint" id="ansLevelNote"></p>
+    <div class="answer-board" id="answerBoard"></div>
+    <div class="answer-step" id="answerStepText"></div>
+    <div class="modal-actions">
+      <button class="btn ghost" id="ansPrev">上一步</button>
+      <span class="step-count" id="ansCount"></span>
+      <button class="btn primary" id="ansNext">下一步</button>
+      <button class="btn ghost" id="ansReset">重置</button>
+    </div>
+    <p class="hint">演示棋盘独立运行，不影响你当前对局的布局、次数与选择。两关最优共 8 次（每关 4 次）= 三星。</p>
+  </div>
+</div>
+
+<div class="overlay" id="modalLevelUp" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="levelUpTitle">
+    <div class="modal-badge ok">第 1 关完成</div>
+    <h3 id="levelUpTitle">扩容救场成功！</h3>
+    <p id="levelUpStats"></p>
+    <p class="hint">下一关：机房断电。初始每台 TiKV 也是 2 份副本，但每个 Region 还没跨满三机房——看起来一样满，不一定一样安全。</p>
+    <div class="modal-actions"><button class="btn primary" id="btnEnterL2">进入第二关</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="modalPowerFail" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="powerFailTitle">
+    <div class="modal-badge err">断电演练失败</div>
+    <h3 id="powerFailTitle"></h3>
+    <div id="powerFailBody"></div>
+    <p class="hint">断电选择的是让最多 Region 失去多数派的机房（并列按 A→B→C）。失联副本不参与投票；三份投票副本中至少两份存活才保有多数派。失去多数派不等于数据丢失：这些 Region 只是暂时无法投票。</p>
+    <div class="modal-actions"><button class="btn primary" id="btnRestore">恢复供电</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="modalFailL1" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="failL1Title">
+    <div class="modal-badge err shake">额度用完了</div>
+    <h3 id="failL1Title">集群还差点火候</h3>
+    <p>6 次搬迁用完了，还有 TiKV 没凑齐 2 份副本。PD 的日常就是重来，别慌。</p>
+    <div class="modal-actions"><button class="btn primary" id="btnRestartFromL1Fail">重开本关</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="modalFailL2" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="failL2Title">
+    <div class="modal-badge err shake">额度用完了</div>
+    <h3 id="failL2Title">还有 Region 没跨满三机房</h3>
+    <p>8 次搬迁用完了。可以重开本关，或者直接挑战断电，看看会发生什么。</p>
+    <div class="modal-actions">
+      <button class="btn primary" id="btnRestartFromL2Fail">重开本关</button>
+      <button class="btn ghost" id="btnChallengeAnyway">直接挑战断电</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="modalCert" hidden>
+  <div class="modal cert" role="dialog" aria-modal="true" aria-labelledby="certTitle">
+    <div class="cert-glow"></div>
+    <div class="modal-badge ok big" id="certTitle">野生 PD 上岗证</div>
+    <p class="cert-sub">Region 搬家大作战 · 通关证明</p>
+    <div class="cert-stars" id="certStars"></div>
+    <p id="certTotal"></p>
+    <p class="hint">评分：两关总搬迁 ≤8 次三星 · ≤10 次两星 · 其余通关一星。搬迁额度与 4 槽位属于游戏规则；真实 TiKV 由 PD 按负载与容灾策略调度。</p>
+    <div class="modal-actions"><button class="btn primary" id="btnPlayAgain">再玩一次</button></div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+var DC_NODES = { A:[1,2], B:[3,4], C:[5,6] };
+var NODE_DC = { 1:"A", 2:"A", 3:"B", 4:"B", 5:"C", 6:"C" };
+var MAX_SLOTS = 4;
+var MOVE_LOCK_MS = 360;
+var COLORS = ["r1","r2","r3","r4"];
+var LEVELS = [
+  { id:1, quota:6, initial:[[1,2,3],[1,2,3],[1,2,4],[1,2,4]],
+    steps:[{r:1,f:1,t:5},{r:2,f:1,t:5},{r:3,f:2,t:6},{r:4,f:2,t:6}] },
+  { id:2, quota:8, initial:[[1,2,3],[1,2,4],[3,5,6],[4,5,6]],
+    steps:[{r:1,f:2,t:5},{r:3,f:6,t:2},{r:2,f:1,t:6},{r:4,f:5,t:1}] }
+];
+
+var boardEl = document.getElementById("board");
+var radioLog = document.getElementById("radioLog");
+var appEl = document.getElementById("app");
+var mqReduce = window.matchMedia("(prefers-reduced-motion: reduce)");
+var log = [];
+var state;
+var lastFocus = null;
+var answerStep = 0;
+
+function $(s){ return document.querySelector(s); }
+function movesLeft(){ return LEVELS[state.level-1].quota - state.used; }
+function busy(){ return state.moving; }
+function reduced(){ return mqReduce.matches; }
+
+function freshState(level){
+  return {
+    level: level,
+    regions: LEVELS[level-1].initial.map(function(a){ return a.slice(); }),
+    used: 0,
+    selected: null,
+    moving: false,
+    dragFrom: null,
+    dragging: false,
+    cutView: null,
+    spreadNoted: false,
+    finished: false,
+    l1Used: null,
+    l2Used: null
+  };
+}
+
+function loadOf(node){
+  var c = 0;
+  for (var i = 0; i < state.regions.length; i++){
+    if (state.regions[i].indexOf(node) >= 0) c++;
+  }
+  return c;
+}
+function nodeLoads(){ return [1,2,3,4,5,6].map(loadOf); }
+function isSpread(r){
+  return ["A","B","C"].every(function(dc){
+    return r.some(function(n){ return NODE_DC[n] === dc; });
+  });
+}
+function lostFor(dc){
+  var out = [];
+  for (var i = 0; i < state.regions.length; i++){
+    var alive = state.regions[i].filter(function(n){ return NODE_DC[n] !== dc; }).length;
+    if (alive < 2) out.push({ r:i+1, alive:alive });
+  }
+  return out;
+}
+function canMove(region, from, to){
+  if (from === to) return { ok:false, reason:"same" };
+  if (state.regions[region-1].indexOf(to) >= 0) return { ok:false, reason:"dup" };
+  if (loadOf(to) >= MAX_SLOTS) return { ok:false, reason:"full" };
+  return { ok:true };
+}
+
+function radio(text, kind){
+  log.push({ text:text, kind:kind || "info" });
+  if (log.length > 8) log.shift();
+  renderRadio();
+}
+function renderRadio(){
+  var items = log.slice(-5);
+  radioLog.innerHTML = items.map(function(l, i){
+    return '<div class="radio-line ' + l.kind + (i === items.length-1 ? " new" : "") + '">' + l.text + '</div>';
+  }).join("");
+  radioLog.scrollTop = radioLog.scrollHeight;
+}
+
+function renderTop(){
+  var pills = document.querySelectorAll(".pill");
+  for (var i = 0; i < pills.length; i++){
+    var p = pills[i];
+    var lv = +p.dataset.level;
+    p.classList.toggle("active", lv === state.level && !state.finished);
+    p.classList.toggle("done", lv === 1 ? state.l1Used !== null : state.l2Used !== null);
+  }
+}
+
+function renderNode(n){
+  var chips = [];
+  for (var i = 0; i < state.regions.length; i++){
+    if (state.regions[i].indexOf(n) >= 0) chips.push(i);
+  }
+  chips.sort(function(a, b){ return a - b; });
+  var slots = "";
+  for (var s = 0; s < MAX_SLOTS; s++){
+    if (s < chips.length){
+      var ri = chips[s];
+      var sel = state.selected && state.selected.region === ri+1 && state.selected.node === n;
+      var offline = state.cutView === NODE_DC[n];
+      slots += '<button class="chip ' + COLORS[ri] + (sel ? " sel" : "") + (offline ? " offline" : "")
+        + '" data-region="' + (ri+1) + '" data-node="' + n + '" draggable="true" aria-pressed="' + (sel ? "true" : "false")
+        + '" aria-label="R' + (ri+1) + ' 副本，位于 TiKV-' + n + '">R' + (ri+1) + '</button>';
+    } else {
+      slots += '<span class="slot"></span>';
+    }
+  }
+  var canDrop = state.selected && state.selected.node !== n && canMove(state.selected.region, state.selected.node, n).ok;
+  var offlineNode = state.cutView === NODE_DC[n];
+  var lostNode = false;
+  if (state.cutView){
+    for (var k = 0; k < state.regions.length; k++){
+      var r = state.regions[k];
+      if (r.indexOf(n) >= 0 && r.filter(function(x){ return NODE_DC[x] !== state.cutView; }).length < 2) lostNode = true;
+    }
+  }
+  var st = "在线", stCls = "";
+  if (offlineNode){ st = "断电"; stCls = "off"; }
+  else if (lostNode){ st = "多数派告急"; stCls = "lost"; }
+  else if (loadOf(n) >= MAX_SLOTS){ st = "满载"; stCls = "full"; }
+  return '<div class="node' + (canDrop ? " can-drop" : "") + (offlineNode ? " offline" : "") + (lostNode ? " lost" : "")
+    + '" data-node="' + n + '" tabindex="0" role="button" aria-label="TiKV-' + n + '，机房 ' + NODE_DC[n] + '，负载 ' + loadOf(n) + '/' + MAX_SLOTS + '">'
+    + '<div class="node-head"><b>TiKV-' + n + '</b><span class="st ' + stCls + '">' + st + '</span><span class="load">' + loadOf(n) + '/' + MAX_SLOTS + '</span></div>'
+    + '<div class="slots">' + slots + '</div>'
+    + '</div>';
+}
+
+function renderBoard(){
+  var act = document.activeElement;
+  var fk = null;
+  if (act && act.closest){
+    var fc = act.closest(".chip");
+    var fn = act.closest(".node");
+    if (fc) fk = { t:"chip", r:+fc.dataset.region, n:+fc.dataset.node };
+    else if (fn) fk = { t:"node", n:+fn.dataset.node };
+  }
+  boardEl.innerHTML = ["A","B","C"].map(function(dc){
+    var cut = state.cutView === dc;
+    var nodes = DC_NODES[dc].map(renderNode).join("");
+    return '<div class="dc' + (cut ? " cut" : "") + '" data-dc="' + dc + '">'
+      + '<div class="dc-head"><span class="dc-name">机房 ' + dc + '</span>'
+      + (cut ? '<span class="cut-badge">已断电</span>' : '<span class="dc-sub">TiKV-' + DC_NODES[dc][0] + ' · TiKV-' + DC_NODES[dc][1] + '</span>')
+      + '</div><div class="dc-nodes">' + nodes + '</div></div>';
+  }).join("");
+  if (fk){
+    var sel = fk.t === "chip" ? '.chip[data-region="' + fk.r + '"][data-node="' + fk.n + '"]' : '.node[data-node="' + fk.n + '"]';
+    var el = boardEl.querySelector(sel);
+    if (el) el.focus({ preventScroll:true });
+  }
+}
+
+function renderMatrix(){
+  var body = "";
+  var dcs = ["A","B","C"];
+  for (var i = 0; i < state.regions.length; i++){
+    var r = state.regions[i];
+    var cells = "";
+    for (var d = 0; d < dcs.length; d++){
+      var dc = dcs[d];
+      var c = r.filter(function(n){ return NODE_DC[n] === dc; }).length;
+      var off = state.cutView === dc;
+      var lost = off && r.filter(function(n){ return NODE_DC[n] !== dc; }).length < 2;
+      var dots = c === 0 ? '<span class="dot zero">–</span>' : new Array(c+1).join('<span class="dot on"></span>');
+      cells += '<td class="' + (off ? (lost ? "lost" : "off") : "") + '">' + dots + '</td>';
+    }
+    body += '<tr class="r' + (i+1) + '"><th class="rk r' + (i+1) + '">R' + (i+1) + '</th>' + cells + '</tr>';
+  }
+  $("#matrixBody").innerHTML = body;
+}
+
+function renderSide(){
+  $("#movesLeft").textContent = movesLeft();
+  $("#usedCount").textContent = state.used;
+  $("#totalCount").textContent = (state.l1Used || 0) + (state.level === 2 ? state.used : 0);
+  if (state.level === 1){
+    var done = nodeLoads().filter(function(l){ return l === 2; }).length;
+    $("#goalText").textContent = "扩容救场：6 次搬迁以内，让 6 台 TiKV 每台正好 2 份副本。老机器加班、新机器发呆——给新同事分点活！";
+    $("#progressText").textContent = done + "/6 台到位";
+    $("#progressBar").style.width = (done/6*100) + "%";
+    $("#btnChallenge").hidden = true;
+  } else {
+    var spread = state.regions.filter(isSpread).length;
+    $("#goalText").textContent = "机房断电：8 次搬迁以内，让每个 Region 的三份副本分别位于 A、B、C，然后点“断电挑战”。";
+    $("#progressText").textContent = spread + "/4 跨三机房";
+    $("#progressBar").style.width = (spread/4*100) + "%";
+    var ch = $("#btnChallenge");
+    ch.hidden = false;
+    ch.disabled = state.finished;
+    ch.classList.toggle("pulse", spread === 4 && !state.finished);
+  }
+  renderMatrix();
+}
+
+function render(){ renderTop(); renderBoard(); renderSide(); }
+
+function selectRegion(region, node){
+  state.selected = { region:region, node:node };
+  radio("R" + region + " 已选中（TiKV-" + node + "），点目标机器或拖过去。");
+  render();
+}
+function onChipClick(region, node){
+  if (busy() || state.finished) return;
+  if (state.selected && state.selected.region === region && state.selected.node === node){
+    state.selected = null;
+    radio("已取消选择。");
+    render();
+    return;
+  }
+  selectRegion(region, node);
+}
+function onNodeClick(node){
+  if (busy() || state.finished) return;
+  if (!state.selected){
+    radio("先点一个彩色副本，再点目标 TiKV。", "warn");
+    return;
+  }
+  attemptMove(state.selected.region, state.selected.node, node);
+}
+function attemptMove(region, from, to){
+  if (busy() || state.finished) return;
+  if (from === to){ radio("TiKV-" + to + " 原地不动，不消耗额度。", "warn"); return; }
+  if (state.regions[region-1].indexOf(to) >= 0){ radio("TiKV-" + to + " 已有 R" + region + " 副本，无效操作，不扣次数。", "warn"); return; }
+  if (loadOf(to) >= MAX_SLOTS){ radio("TiKV-" + to + " 槽位已满（4/4），无效操作，不扣次数。", "warn"); return; }
+  doMove(region, from, to);
+}
+function doMove(region, from, to){
+  var fromEl = boardEl.querySelector('.chip[data-region="' + region + '"][data-node="' + from + '"]');
+  var fromRect = fromEl ? fromEl.getBoundingClientRect() : null;
+  state.regions[region-1] = state.regions[region-1].map(function(n){ return n === from ? to : n; });
+  state.used++;
+  state.selected = null;
+  state.moving = true;
+  render();
+  var toEl = boardEl.querySelector('.chip[data-region="' + region + '"][data-node="' + to + '"]');
+  if (toEl){
+    toEl.classList.add("landed");
+    if (fromRect && !reduced()) flyChip(region, fromRect, toEl.getBoundingClientRect());
+  }
+  radio("R" + region + "：TiKV-" + from + " → TiKV-" + to + "，消耗 1 次，剩余 " + movesLeft() + " 次。", "ok");
+  window.setTimeout(function(){ state.moving = false; }, reduced() ? 0 : MOVE_LOCK_MS);
+  checkGoals();
+}
+function flyChip(region, fromRect, toRect){
+  var g = document.createElement("div");
+  g.className = "ghost-chip chip " + COLORS[region-1];
+  g.textContent = "R" + region;
+  g.style.left = fromRect.left + "px";
+  g.style.top = fromRect.top + "px";
+  g.style.width = fromRect.width + "px";
+  g.style.height = fromRect.height + "px";
+  document.body.appendChild(g);
+  var dx = toRect.left - fromRect.left;
+  var dy = toRect.top - fromRect.top;
+  requestAnimationFrame(function(){
+    g.style.transform = "translate(" + dx + "px, " + dy + "px) scale(1.1)";
+  });
+  window.setTimeout(function(){ if (g.parentNode) g.parentNode.removeChild(g); }, MOVE_LOCK_MS + 80);
+}
+
+function checkGoals(){
+  if (state.level === 1){
+    var allTwo = nodeLoads().every(function(l){ return l === 2; });
+    if (allTwo){
+      state.l1Used = state.used;
+      renderLevelUp();
+      openModal("modalLevelUp");
+      radio("6 台 TiKV 全部 2 份副本，扩容救场成功！", "ok");
+      render();
+      return;
+    }
+    if (state.used >= LEVELS[0].quota) openModal("modalFailL1");
+  } else {
+    var spread = state.regions.every(isSpread);
+    if (spread && !state.spreadNoted){
+      state.spreadNoted = true;
+      radio("每个 Region 都跨 A/B/C 了，可以点“断电挑战”验收。", "ok");
+    }
+    if (state.used >= LEVELS[1].quota && !spread) openModal("modalFailL2");
+  }
+  render();
+}
+
+function renderLevelUp(){
+  $("#levelUpStats").textContent = "本关用了 " + state.used + " 次搬迁，剩余 " + movesLeft() + " 次。";
+}
+function renderPowerFail(cut, lost){
+  $("#powerFailTitle").textContent = cut + " 机房断电";
+  $("#powerFailBody").innerHTML =
+    '<div class="kv">失联机房：<b>机房 ' + cut + '</b>（TiKV-' + DC_NODES[cut][0] + '、TiKV-' + DC_NODES[cut][1] + '）</div>'
+    + '<div class="kv">失去多数派的 Region：' + lost.map(function(x){
+        return '<span class="miss">R' + x.r + '</span>（' + x.alive + '/3 副本在线）';
+      }).join("、") + '</div>'
+    + '<p>这些 Region 的三份投票副本里不足两份存活，暂时无法投票、Region 暂不可用——<b>但数据没有丢失</b>。恢复供电后继续调整副本分布吧。</p>';
+}
+function renderCert(){
+  var total = (state.l1Used || 0) + (state.l2Used || 0);
+  var stars = total <= 8 ? 3 : (total <= 10 ? 2 : 1);
+  $("#certStars").textContent = new Array(stars+1).join("★") + new Array(4-stars).join("☆");
+  $("#certTotal").textContent = "兹证明：你已成功完成扩容救场与机房断电两关演练，两关共搬迁 " + total + " 次。";
+}
+
+function anyModalOpen(){ return !!document.querySelector(".overlay:not([hidden])"); }
+function openModal(id){
+  var m = document.getElementById(id);
+  if (!m) return;
+  lastFocus = document.activeElement;
+  m.hidden = false;
+  appEl.inert = true;
+  var b = m.querySelector("button:not([disabled])");
+  if (b) b.focus();
+}
+function closeModal(id){
+  var m = document.getElementById(id);
+  if (!m) return;
+  m.hidden = true;
+  if (!anyModalOpen()) appEl.inert = false;
+  if (lastFocus && document.contains(lastFocus)) lastFocus.focus({ preventScroll:true });
+}
+
+function runChallenge(){
+  if (busy() || state.finished) return;
+  var counts = ["A","B","C"].map(function(dc){ return lostFor(dc).length; });
+  var max = Math.max.apply(null, counts);
+  var cut = ["A","B","C"][counts.indexOf(max)];
+  var lost = lostFor(cut);
+  state.cutView = cut;
+  render();
+  radio("断电演练：" + cut + " 机房断电（它让最多 Region 失去多数派，并列按 A→B→C）。", "warn");
+  if (lost.length === 0){
+    state.l2Used = state.used;
+    state.finished = true;
+    renderCert();
+    openModal("modalCert");
+    radio("全员多数派在线，断电演练通过！两关通关。", "ok");
+    render();
+  } else {
+    renderPowerFail(cut, lost);
+    openModal("modalPowerFail");
+    radio(cut + " 机房断电：" + lost.map(function(x){ return "R" + x.r; }).join("、") + " 失去多数派。", "err");
+  }
+}
+function restorePower(){
+  closeModal("modalPowerFail");
+  state.cutView = null;
+  render();
+  radio("已恢复供电，布局和已用次数保持不变。");
+  if (state.level === 2 && state.used >= LEVELS[1].quota && !state.regions.every(isSpread)){
+    openModal("modalFailL2");
+  }
+}
+function restartLevel(){
+  var l1 = state.l1Used;
+  var lv = state.level;
+  closeModal("modalFailL1");
+  closeModal("modalFailL2");
+  closeModal("modalPowerFail");
+  state = freshState(lv);
+  if (lv === 2) state.l1Used = l1;
+  render();
+  radio("本关已重开：布局复位，额度恢复。");
+}
+function goLevel2(){
+  var l1 = state.l1Used;
+  closeModal("modalLevelUp");
+  state = freshState(2);
+  state.l1Used = l1;
+  render();
+  radio("第二关开始：看起来一样满，不一定一样安全。");
+}
+
+function openAnswer(){
+  answerStep = 0;
+  renderAnswer();
+  openModal("modalAnswer");
+}
+function renderAnswer(){
+  var L = LEVELS[state.level-1];
+  var regions = L.initial.map(function(a){ return a.slice(); });
+  for (var i = 0; i < answerStep; i++){
+    var s = L.steps[i];
+    regions[s.r-1] = regions[s.r-1].map(function(n){ return n === s.f ? s.t : n; });
+  }
+  $("#ansLevelNote").textContent = "当前展示：第 " + state.level + " 关解法（共 " + L.steps.length + " 步）。";
+  $("#answerBoard").innerHTML = ["A","B","C"].map(function(dc){
+    var nodes = DC_NODES[dc].map(function(n){
+      var chips = [];
+      for (var j = 0; j < regions.length; j++){
+        if (regions[j].indexOf(n) >= 0) chips.push(j);
+      }
+      return '<div class="mini-node">' + chips.map(function(ri){
+        return '<span class="mini-chip ' + COLORS[ri] + '">R' + (ri+1) + '</span>';
+      }).join("") + '</div>';
+    }).join("");
+    return '<div class="mini-dc"><div class="mini-head">机房 ' + dc + '</div>' + nodes + '</div>';
+  }).join("");
+  var txt;
+  if (answerStep === 0){
+    txt = "初始布局：还没开始搬。";
+  } else {
+    var st = L.steps[answerStep-1];
+    txt = "第 " + answerStep + " 步：把 R" + st.r + " 从 TiKV-" + st.f + " 搬到 TiKV-" + st.t + "。";
+  }
+  $("#answerStepText").textContent = txt;
+  $("#ansCount").textContent = answerStep + " / " + L.steps.length;
+  $("#ansPrev").disabled = answerStep === 0;
+  $("#ansNext").disabled = answerStep === L.steps.length;
+}
+
+boardEl.addEventListener("click", function(e){
+  var chip = e.target.closest ? e.target.closest(".chip") : null;
+  if (chip){ onChipClick(+chip.dataset.region, +chip.dataset.node); return; }
+  var node = e.target.closest ? e.target.closest(".node") : null;
+  if (node) onNodeClick(+node.dataset.node);
+});
+boardEl.addEventListener("keydown", function(e){
+  if (e.target.closest && e.target.closest(".chip")) return;
+  var node = e.target.closest ? e.target.closest(".node") : null;
+  if (!node) return;
+  if (e.key === "Enter" || e.key === " " || e.key === "Spacebar"){
+    e.preventDefault();
+    onNodeClick(+node.dataset.node);
+    return;
+  }
+  var order = [1,2,3,4,5,6];
+  var idx = order.indexOf(+node.dataset.node);
+  var next = -1;
+  if (e.key === "ArrowRight" || e.key === "ArrowDown") next = (idx + 1) % 6;
+  else if (e.key === "ArrowLeft" || e.key === "ArrowUp") next = (idx + 5) % 6;
+  if (next >= 0){
+    e.preventDefault();
+    var el = boardEl.querySelector('.node[data-node="' + order[next] + '"]');
+    if (el) el.focus();
+  }
+});
+boardEl.addEventListener("dragstart", function(e){
+  var chip = e.target.closest ? e.target.closest(".chip") : null;
+  if (!chip || busy() || state.finished){ e.preventDefault(); return; }
+  state.dragFrom = +chip.dataset.node;
+  state.dragging = true;
+  state.selected = { region:+chip.dataset.region, node:+chip.dataset.node };
+  try {
+    e.dataTransfer.setData("text/plain", chip.dataset.region);
+    e.dataTransfer.effectAllowed = "move";
+  } catch(err){}
+  chip.classList.add("sel");
+  var nodes = boardEl.querySelectorAll(".node");
+  for (var i = 0; i < nodes.length; i++){
+    var n = +nodes[i].dataset.node;
+    if (canMove(state.selected.region, state.selected.node, n).ok) nodes[i].classList.add("can-drop");
+  }
+});
+boardEl.addEventListener("dragover", function(e){
+  var node = e.target.closest ? e.target.closest(".node") : null;
+  if (!node) return;
+  e.preventDefault();
+  try { e.dataTransfer.dropEffect = "move"; } catch(err){}
+});
+boardEl.addEventListener("drop", function(e){
+  var node = e.target.closest ? e.target.closest(".node") : null;
+  if (!node) return;
+  e.preventDefault();
+  var region = 0;
+  try { region = +e.dataTransfer.getData("text/plain"); } catch(err){}
+  var from = state.dragFrom;
+  state.dragFrom = null;
+  state.dragging = false;
+  if (!region && state.selected) region = state.selected.region;
+  if (region && from !== null && from !== undefined) attemptMove(region, from, +node.dataset.node);
+});
+boardEl.addEventListener("dragend", function(){
+  if (state.dragging || state.dragFrom !== null){
+    state.dragging = false;
+    state.dragFrom = null;
+    render();
+  }
+});
+
+document.addEventListener("click", function(e){
+  var c = e.target.closest ? e.target.closest("[data-close-modal]") : null;
+  if (c) closeModal(c.dataset.closeModal);
+});
+document.addEventListener("keydown", function(e){
+  if (e.key !== "Escape") return;
+  var open = document.querySelector(".overlay:not([hidden])");
+  if (open){
+    if (open.dataset.closable === "1") closeModal(open.id);
+    return;
+  }
+  if (state.selected){
+    state.selected = null;
+    radio("已取消选择。");
+    render();
+  }
+});
+
+$("#btnHelp").addEventListener("click", function(){ openModal("modalHelp"); });
+$("#btnAnswer").addEventListener("click", openAnswer);
+$("#btnEnterL2").addEventListener("click", goLevel2);
+$("#btnRestore").addEventListener("click", restorePower);
+$("#btnRestart").addEventListener("click", restartLevel);
+$("#btnRestartFromL1Fail").addEventListener("click", function(){ closeModal("modalFailL1"); restartLevel(); });
+$("#btnRestartFromL2Fail").addEventListener("click", function(){ closeModal("modalFailL2"); restartLevel(); });
+$("#btnChallenge").addEventListener("click", runChallenge);
+$("#btnChallengeAnyway").addEventListener("click", function(){ closeModal("modalFailL2"); runChallenge(); });
+$("#btnPlayAgain").addEventListener("click", function(){
+  closeModal("modalCert");
+  state = freshState(1);
+  render();
+  radio("新一轮值班开始，加油 PD！");
+});
+$("#ansPrev").addEventListener("click", function(){ if (answerStep > 0){ answerStep--; renderAnswer(); } });
+$("#ansNext").addEventListener("click", function(){
+  if (answerStep < LEVELS[state.level-1].steps.length){ answerStep++; renderAnswer(); }
+});
+$("#ansReset").addEventListener("click", function(){ answerStep = 0; renderAnswer(); });
+
+window.__REGION_GAME__ = {
+  version: "1.0.0",
+  getState: function(){
+    return JSON.parse(JSON.stringify({
+      level: state.level,
+      regions: state.regions,
+      used: state.used,
+      selected: state.selected,
+      moving: state.moving,
+      cutView: state.cutView,
+      finished: state.finished,
+      l1Used: state.l1Used,
+      l2Used: state.l2Used,
+      movesLeft: movesLeft()
+    }));
+  },
+  levels: function(){ return JSON.parse(JSON.stringify(LEVELS)); }
+};
+
+state = freshState(1);
+render();
+radio("值班开始：点击彩色副本，再点目标 TiKV 就能搬家；无效操作不扣次数，放心试。");
+openModal("modalHelp");
+})();
+</script>
+</body>
+</html>
